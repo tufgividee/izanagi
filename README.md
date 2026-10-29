@@ -101,6 +101,103 @@ For the exact options supported by a command, use its help output. For example:
 uv run izanagi base --help
 ```
 
+## Configuration
+
+Izanagi uses a project-local `.izanagi/config.toml` file to control project settings, file discovery, inclusion and exclusion rules, and snapshot preambles.
+
+Initialize a project to create its configuration:
+
+```bash
+izanagi init
+```
+
+The main settings are:
+
+| Setting | Purpose |
+|---|---|
+| `[project]` | Project name, root directory, and output directory |
+| `[scan]` | File discovery options, including hidden files |
+| `[scan.inclusions]` | Rules for files and directories to include |
+| `[scan.exclusions]` | Rules for files and directories to exclude |
+| `[preamble]` | Introductory text for base and incremental snapshots |
+
+### Project settings
+
+```toml
+[project]
+name = ""
+root = "."
+output_dir = ".izanagi"
+
+[scan]
+include_hidden_files = true
+```
+
+The project root defaults to the current directory, and generated context is stored in `.izanagi/` by default.
+
+### Choosing which files to include
+
+Use `scan.inclusions.rules` to specify which project files should be captured. For example:
+
+```toml
+[scan.inclusions]
+rules = [
+    "*.py",
+    "*.rs",
+    "*.md",
+    "*.toml",
+    "pyproject.toml",
+    "README.md",
+]
+```
+
+This example selects common source files, Markdown documentation, and TOML configuration files. Adapt the rules to your project's languages and structure.
+
+### Excluding files
+
+Use `scan.exclusions.rules` to omit files and directories that should not be included in the snapshot.
+
+```toml
+[scan.exclusions]
+rules = [
+    ".git/",
+    ".venv/",
+    "__pycache__/",
+    "*.pyc",
+    "*.log",
+    ".pytest_cache/",
+]
+```
+
+Exclusions are useful for keeping generated files, caches, virtual environments, and irrelevant content out of the context.
+
+A file may match both inclusion and exclusion rules. Review the generated inventory to verify how Izanagi resolves those matches:
+
+```bash
+izanagi manifest
+```
+
+The inventory reports which entries are included or excluded and the associated reason.
+
+### Customizing snapshot preambles
+
+The `[preamble]` section controls the introductory text placed in generated snapshots.
+
+- `base_preamble` introduces the full project snapshot.
+- `incremental_preamble` introduces an incremental snapshot. The `{base_snapshot_id}` placeholder identifies the referenced base snapshot.
+
+Customize these messages to provide project-specific context or instructions for AI assistants. Keep reusable project guidance in documentation and use the preambles for concise introductory information.
+
+### Configuration tips
+
+- Start with the generated configuration and adjust it incrementally.
+- Include documentation that explains architecture, conventions, and important design decisions.
+- Exclude secrets, credentials, private data, and unnecessary generated files.
+- Run `izanagi manifest` after changing rules to inspect the results.
+- Create a new base snapshot after confirming that the inventory captures the context you want to share.
+
+Configuration behavior and available options may evolve as Izanagi develops.
+
 ## Typical collaboration workflow
 
 ### 1. Initialize the project
