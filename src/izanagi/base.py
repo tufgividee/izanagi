@@ -1,14 +1,13 @@
-
-"""Build canonical project base."""
+"""Build portable base snapshots of project files."""
 
 from __future__ import annotations
 
 import base64
 import hashlib
 import json
+import re
 import uuid
 from datetime import UTC, datetime
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -17,21 +16,14 @@ from izanagi.manifest import manifest_project
 FORMAT_VERSION = 1
 
 
-def _izanagi_version() -> str | None:
-    """Return the installed package version, if available."""
-    try:
-        return version("izanagi")
-    except PackageNotFoundError:
-        return None
-
-
 def _format_bytes(data: bytes) -> str:
-    """Represent file bytes as UTF-8 when possible, otherwise as Base64."""
+    """Return UTF-8 text, or Base64 for binary data."""
     try:
         return data.decode("utf-8")
     except UnicodeDecodeError:
-        return "Base64-encoded binary file\n\n" + base64.b64encode(data).decode(
-            "ascii"
+        return (
+            "[Binary content encoded as Base64]\n"
+            + base64.b64encode(data).decode("ascii")
         )
 
 
@@ -39,29 +31,23 @@ def _is_utf8(data: bytes) -> bool:
     """Return whether bytes can be decoded as UTF-8."""
     try:
         data.decode("utf-8")
+        return True
     except UnicodeDecodeError:
         return False
-    return True
 
 
 def _fence_for(content: str) -> str:
-    """Choose a Markdown fence longer than any backtick run in the content."""
-    longest = 0
-    current = 0
-
-    for character in content:
-        if character == "`":
-            current += 1
-            longest = max(longest, current)
-        else:
-            current = 0
-
+    """Choose a Markdown code fence longer than any run in content."""
+    longest = max(
+        (len(match.group(0)) for match in re.finditer(r"`+", content)),
+        default=0,
+    )
     return "`" * max(3, longest + 1)
 
 
 def _directory_structure(records: list[dict[str, Any]]) -> str:
-    """Render a deterministic tree, pruning excluded directories without included descendants."""
-    nodes: dict[str, dict[str, Any]] = {}
+    """Build a deterministic tree from manifest records."""
+    tree: dict[str, Any] = {}
 
     for record in records:
         path = record["path"].rstrip("/")
@@ -69,142 +55,245 @@ def _directory_structure(records: list[dict[str, Any]]) -> str:
             continue
 
         parts = path.split("/")
-        for index in range(len(parts)):
-            relative = "/".join(parts[: index + 1])
-            is_explicit_record = index == len(parts) - 1
-            existing = nodes.get(relative)
+        current = tree
 
-            if existing is None:
-                nodes[relative] = {
-                    "path": relative,
-                    "name": parts[index],
-                    "kind": (
-                        record["kind"] if is_explicit_record else "directory"
-                    ),
-                    "included": (
-                        bool(record["included"]) if is_explicit_record else False
-                    ),
-                    "explicit": is_explicit_record,
-                }
-            elif is_explicit_record:
-                existing.update(
-                    {
-                        "kind": record["kind"],
-                        "included": bool(record["included"]),
-                        "explicit": True,
-                    }
-                )
-
-    children: dict[str, list[str]] = {}
-    for path in nodes:
-        parent = path.rpartition("/")[0]
-        children.setdefault(parent, []).append(path)
-
-    for child_paths in children.values():
-        child_paths.sort(key=lambda item: (nodes[item]["name"].casefold(), item))
-
-    # A directory is visible if it is included, is not explicitly excluded,
-    # or contains an included descendant that is a specific inclusion override.
-    visible: set[str] = set()
-    for path, node in nodes.items():
-        if node["kind"] != "directory":
-            if node["included"]:
-                visible.add(path)
-            continue
-
-        descendants = [
-            other
-            for other in nodes
-            if other.startswith(path + "/") and nodes[other]["included"]
-        ]
-        explicitly_excluded = node["explicit"] and not node["included"]
-        if not explicitly_excluded or descendants:
-            visible.add(path)
+        for part in parts:
+            current = current.setdefault(part, {})
 
     lines: list[str] = []
 
-    def render(parent: str, prefix: str = "") -> None:
-        child_paths = [
-            path
-            for path in children.get(parent, [])
-            if path in visible
-        ]
+    def walk(node: dict[str, Any], prefix: str = "") -> None:
+        items = sorted(node.items())
+        for index, (name, children) in enumerate(items):
+            last = index == len(items) - 1
+            lines.append(f"{prefix}{'└── ' if last else '├── '}{name}")
+            if children:
+                walk(children, prefix + ("    " if last else "│   "))
 
-        for index, path in enumerate(child_paths):
-            node = nodes[path]
-            is_last = index == len(child_paths) - 1
-            connector = "└── " if is_last else "├── "
-            name = node["name"]
-
-            if node["kind"] == "directory":
-                name += "/"
-
-            lines.append(f"{prefix}{connector}{name}")
-            if node["kind"] == "directory":
-                render(path, prefix + ("    " if is_last else "│   "))
-
-    render("")
-    return "\n".join(lines) if lines else "(no included paths)"
+    walk(tree)
+    return "\n".join(lines)
 
 
-def build_snapshot(project: Path, *, config: dict[str, Any]) -> dict[str, Any]:
-    """Build base Markdown and a JSON-serializable manifest.
+def _filter_markdown(content: str, config: dict[str, Any]) -> str:
+    """Apply configured Markdown embedded-media filtering."""
+    settings = config.get("markdown", {})
+    if not settings.get("strip_embedded_media", False):
+        return content
 
-    Project code is never executed. Included file bytes are captured by
-    manifest_project() and reused here for content, size, and SHA-256.
-    Excluded files are not read or hashed.
-    """
-    inventory = manifest_project(project, config=config, capture_content=True)
-    root = Path(inventory["project_root"])
+    preserve_alt = settings.get("preserve_alt_text", True)
+    preserve_reference = settings.get("preserve_image_reference", True)
+
+    # Replace data-URI payloads in Markdown image destinations.
+    # Example: ![diagram](data:image/png;base64,AAAA...)
+    data_uri_pattern = re.compile(
+        r"data:[^,\s)]+(?:;[^,\s)]*)*;base64,[A-Za-z0-9+/=\r\n]+",
+        re.IGNORECASE,
+    )
+
+    def replace_inline_image(match: re.Match[str]) -> str:
+        alt = match.group("alt")
+        destination = match.group("destination")
+        title = match.group("title") or ""
+
+        if destination.lower().startswith("data:"):
+            if preserve_alt:
+                if preserve_reference:
+                    return f"![{alt}](embedded-media-removed){title}"
+                return f"[Image: {alt}]"
+            if preserve_reference:
+                return "(embedded-media-removed)"
+            return "[embedded media removed]"
+
+        return match.group(0)
+
+    inline_image_pattern = re.compile(
+        r"!\[(?P<alt>[^\]]*)\]"
+        r"\((?P<destination><[^>]*>|[^)\s]+)"
+        r"(?P<title>\s+(['\"]).*?\4)?\)",
+    )
+
+    content = inline_image_pattern.sub(replace_inline_image, content)
+
+    # Handle raw HTML img tags containing base64 data URIs.
+    def replace_html_image(match: re.Match[str]) -> str:
+        tag = match.group(0)
+        src_match = re.search(
+            r"""src\s*=\s*(["'])(.*?)\1""",
+            tag,
+            re.IGNORECASE | re.DOTALL,
+        )
+        if not src_match or not src_match.group(2).lower().startswith("data:"):
+            return tag
+
+        alt_match = re.search(
+            r"""alt\s*=\s*(["'])(.*?)\1""",
+            tag,
+            re.IGNORECASE | re.DOTALL,
+        )
+        alt = alt_match.group(2) if alt_match else ""
+
+        if preserve_alt and alt:
+            if preserve_reference:
+                return f'<img alt="{alt}" src="embedded-media-removed">'
+            return f"[Image: {alt}]"
+
+        return "[embedded media removed]"
+
+    content = re.sub(
+        r"<img\b[^>]*>",
+        replace_html_image,
+        content,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    # Remove standalone base64 data URI payloads that may have been pasted
+    # directly into Markdown, without an image wrapper.
+    content = data_uri_pattern.sub("[embedded media removed]", content)
+
+    return content
+
+
+def _notebook_source(source: Any) -> str:
+    """Normalize a Jupyter cell source into text."""
+    if isinstance(source, str):
+        return source
+    if isinstance(source, list) and all(isinstance(item, str) for item in source):
+        return "".join(source)
+    return ""
+
+
+def _filter_notebook(content: str, config: dict[str, Any]) -> str:
+    """Apply configured notebook cell, output, and execution-count filters."""
+    settings = config.get("ipynb", {})
+    include_source = settings.get("include_source", True)
+    include_outputs = settings.get("include_outputs", False)
+    include_execution_counts = settings.get("include_execution_counts", False)
+
+    try:
+        notebook = json.loads(content)
+    except json.JSONDecodeError:
+        # Keep malformed notebook content visible rather than silently losing it.
+        return content
+
+    if not isinstance(notebook, dict):
+        return content
+
+    cells = notebook.get("cells")
+    if not isinstance(cells, list):
+        return content
+
+    filtered_cells: list[Any] = []
+
+    for cell in cells:
+        if not isinstance(cell, dict):
+            filtered_cells.append(cell)
+            continue
+
+        filtered_cell = dict(cell)
+
+        if not include_source:
+            filtered_cell.pop("source", None)
+        else:
+            # Keep a stable, readable JSON representation of cell source.
+            if "source" in filtered_cell:
+                filtered_cell["source"] = _notebook_source(filtered_cell["source"])
+
+        if not include_outputs:
+            filtered_cell.pop("outputs", None)
+
+        if not include_execution_counts:
+            filtered_cell.pop("execution_count", None)
+
+        # Markdown cell text may contain embedded media and should use the
+        # same Markdown filtering settings as standalone Markdown files.
+        if (
+            include_source
+            and filtered_cell.get("cell_type") == "markdown"
+            and isinstance(filtered_cell.get("source"), str)
+        ):
+            filtered_cell["source"] = _filter_markdown(
+                filtered_cell["source"], config
+            )
+
+        filtered_cells.append(filtered_cell)
+
+    notebook["cells"] = filtered_cells
+
+    return json.dumps(notebook, indent=2, ensure_ascii=False) + "\n"
+
+
+def _filter_content(path: str, content: bytes, config: dict[str, Any]) -> str:
+    """Decode and filter content according to its file type."""
+    text = _format_bytes(content)
+
+    # Filtering applies to UTF-8 text only. Binary files retain the standard
+    # Base64 representation produced by _format_bytes().
+    if not _is_utf8(content):
+        return text
+
+    suffix = Path(path).suffix.lower()
+
+    if suffix in {".md", ".markdown"}:
+        return _filter_markdown(text, config)
+
+    if suffix == ".ipynb":
+        return _filter_notebook(text, config)
+
+    return text
+
+
+def build_snapshot(
+    project: Path,
+    *,
+    config: dict[str, Any],
+    izanagi_version: str | None = None,
+) -> dict[str, Any]:
+    """Build a base snapshot and JSON manifest for a project."""
+    root = project.expanduser().resolve(strict=True)
+    if not root.is_dir():
+        raise NotADirectoryError(f"Project path is not a directory: {root}")
+
+    inventory = manifest_project(root, config=config, capture_content=True)
+
     timestamp = datetime.now(UTC).isoformat()
     snapshot_id = str(uuid.uuid4())
-    izanagi_version = _izanagi_version()
 
     records: list[dict[str, Any]] = []
     document_sections: list[tuple[str, str]] = []
     source_sections: list[tuple[str, str]] = []
 
-    for original in inventory["files"]:
-        record = dict(original)
-        data = record.pop("_content", None)
+    for record in inventory["files"]:
+        item = {key: value for key, value in record.items() if key != "_content"}
+        records.append(item)
 
-        if (
-            not record["included"]
-            or record["kind"] in {"directory", "symlink", "unreadable"}
-        ):
-            record.pop("sha256", None)
-            record.pop("encoding", None)
-            if not record["included"]:
-                record["size_bytes"] = None
-            records.append(record)
+        if not record.get("included") or record.get("kind") in {
+            "directory",
+            "symlink",
+            "unreadable",
+        }:
             continue
 
-        if data is None:
-            record["included"] = False
-            record["reason"] = "included file content was not captured"
-            record["size_bytes"] = None
-            record.pop("sha256", None)
-            records.append(record)
+        content = record.get("_content")
+        if not isinstance(content, bytes):
             continue
 
-        digest = hashlib.sha256(data).hexdigest()
-        size = len(data)
-        encoding = "utf-8" if _is_utf8(data) else "base64"
+        filtered_content = _filter_content(record["path"], content, config)
+        fence = _fence_for(filtered_content)
 
-        record["size_bytes"] = size
-        record["sha256"] = digest
-        record["encoding"] = encoding
-        records.append(record)
-
-        content = _format_bytes(data)
-        fence = _fence_for(content)
-        section = (
-            f"### `{record['path']}`\n\n"
-            f"- Type: {record['kind']}\n"
-            f"- Size: {size} bytes\n"
-            f"- SHA-256: `{digest}`\n"
-            f"- Encoding: {encoding}\n\n"
-            f"{fence}\n{content}\n{fence}"
+        section = "\n".join(
+            [
+                f"### `{record['path']}`",
+                "",
+                f"- Type: {record['kind']}",
+                f"- Size: {record['size_bytes']} bytes",
+                f"- SHA-256: `{record['sha256']}`",
+                f"- Encoding: {'utf-8' if _is_utf8(content) else 'base64'}",
+                "",
+                fence,
+                filtered_content,
+                fence,
+                "",
+            ]
         )
 
         if record["kind"] == "documentation":

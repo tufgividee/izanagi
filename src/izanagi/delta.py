@@ -1,4 +1,3 @@
-
 """Build incremental project updates relative to a saved base snapshot."""
 
 from __future__ import annotations
@@ -9,8 +8,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from izanagi.base import (
+    FORMAT_VERSION,
+    _fence_for,
+    _filter_content,
+    _is_utf8,
+)
 from izanagi.manifest import manifest_project
-from izanagi.base import FORMAT_VERSION, _fence_for, _format_bytes, _is_utf8
 
 
 def _read_manifest(path: Path) -> dict[str, Any] | None:
@@ -52,7 +56,10 @@ def _find_base(
     ]
 
     if base_id is not None:
-        matches = [item for item in candidates if item.get("snapshot_id") == base_id]
+        matches = [
+            item for item in candidates
+            if item.get("snapshot_id") == base_id
+        ]
         if not matches:
             raise ValueError(
                 f"Base snapshot '{base_id}' was not found for project "
@@ -86,7 +93,7 @@ def build_delta(
     output_root: Path,
     base_id: str | None = None,
 ) -> dict[str, Any]:
-    """Compare the current included-file state with a saved base manifest."""
+    """Compare current included-file state with a saved base manifest."""
     root = project.expanduser().resolve(strict=True)
     if not root.is_dir():
         raise NotADirectoryError(f"Project path is not a directory: {root}")
@@ -104,7 +111,9 @@ def build_delta(
         record
         for record in current["files"]
         if record.get("kind") == "unreadable"
-        or str(record.get("reason", "")).startswith("directory traversal error:")
+        or str(record.get("reason", "")).startswith(
+            "directory traversal error:"
+        )
     ]
     if scan_errors:
         paths = ", ".join(record["path"] for record in scan_errors[:5])
@@ -122,6 +131,7 @@ def build_delta(
     for path in sorted(current_files):
         record = current_files[path]
         previous = base_files.get(path)
+
         action = (
             "added"
             if previous is None
@@ -165,7 +175,10 @@ def build_delta(
     project_name = (
         config.get("project", {}).get("name", "").strip() or root.name
     )
-    preamble = config.get("preamble", {}).get("incremental_preamble", "").strip()
+
+    preamble = config.get("preamble", {}).get(
+        "incremental_preamble", ""
+    ).strip()
     if preamble:
         preamble = preamble.format(base_snapshot_id=base["snapshot_id"])
 
@@ -188,7 +201,8 @@ def build_delta(
         for action in ("added", "modified", "deleted")
     }
     unchanged_count = sum(
-        path in base_files and base_files[path].get("sha256") == record.get("sha256")
+        path in base_files
+        and base_files[path].get("sha256") == record.get("sha256")
         for path, record in current_files.items()
     )
 
@@ -217,7 +231,8 @@ def build_delta(
             if action == "deleted":
                 lines.extend(
                     [
-                        f"- Previous SHA-256: `{change.get('previous_sha256') or 'unavailable'}`",
+                        "- Previous SHA-256: "
+                        f"`{change.get('previous_sha256') or 'unavailable'}`",
                         "",
                     ]
                 )
@@ -225,20 +240,29 @@ def build_delta(
 
             if action == "modified":
                 lines.append(
-                    f"- Previous SHA-256: `{change.get('previous_sha256') or 'unavailable'}`"
+                    "- Previous SHA-256: "
+                    f"`{change.get('previous_sha256') or 'unavailable'}`"
                 )
+
+            content = content_by_path[path]
+            filtered_content = _filter_content(path, content, config)
+            fence = _fence_for(filtered_content)
+
             lines.extend(
                 [
                     f"- Current SHA-256: `{change['sha256']}`",
                     f"- Size: {change['size_bytes']} bytes",
-                    f"- Encoding: {'utf-8' if _is_utf8(content_by_path[path]) else 'base64'}",
+                    f"- Encoding: {'utf-8' if _is_utf8(content) else 'base64'}",
+                    "",
+                    fence,
+                    filtered_content,
+                    fence,
                     "",
                 ]
             )
-            content = _format_bytes(content_by_path[path])
-            lines.extend([_fence_for(content), content, _fence_for(content), ""])
 
     document = "\n".join(lines).rstrip() + "\n"
+
     delta_manifest = {
         "format_version": FORMAT_VERSION,
         "izanagi_version": base.get("izanagi_version"),
@@ -255,6 +279,7 @@ def build_delta(
         },
         "changes": changes,
     }
+
     return {"delta": document, "manifest": delta_manifest}
 
 
@@ -275,4 +300,5 @@ def write_delta(
         json.dumps(delta["manifest"], indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+
     return delta_path, manifest_path

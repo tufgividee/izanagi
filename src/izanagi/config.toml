@@ -47,6 +47,16 @@ rules = [
     ".ruff_cache",
 ]
 
+[ipynb]
+include_source = true
+include_outputs = false
+include_execution_counts = false
+
+[markdown]
+strip_embedded_media = true
+preserve_alt_text = true
+preserve_image_reference = true
+
 [preamble]
 base_preamble = """
 # Izanagi Project Context — Base Snapshot
