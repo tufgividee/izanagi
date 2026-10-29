@@ -1,0 +1,57 @@
+{
+  "format_version": 1,
+  "izanagi_version": "0.1.0",
+  "delta_id": "89dadea2-1bf2-48a7-ac58-83592d7a4597",
+  "created_at": "2026-10-28T17:20:06.177698+00:00",
+  "project_name": "izanagi",
+  "project_root": "/run/media/xiaonan/nn120gssd/career_build/ai/izanagi",
+  "base_snapshot_id": "f9b99056-8fa3-48fd-ae4d-c1d4423a6ad2",
+  "summary": {
+    "added_count": 1,
+    "modified_count": 3,
+    "deleted_count": 0,
+    "unchanged_count": 13
+  },
+  "changes": [
+    {
+      "path": ".izanagi/config.toml",
+      "kind": "config",
+      "included": true,
+      "reason": "included by rule: *.toml",
+      "size_bytes": 1608,
+      "sha256": "18246e0f39c6e9a65ba22b5698901d0cce77d032850ec4b4fde68c360962045c",
+      "action": "modified",
+      "previous_sha256": "2e2e07cbce122165ad6579c48c967a46356142ea2c3b1c34509b9eee45ac619c"
+    },
+    {
+      "path": "src/izanagi/__init__.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 7381,
+      "sha256": "19c7f8cb41aa6611624b2bde84826e9cb79209aa122dcf0d9ad5b53eb213e926",
+      "action": "modified",
+      "previous_sha256": "60854c5d4e102a4702d5fa213538e5674f3cd4d53613e887fb219274fb019e56"
+    },
+    {
+      "path": "src/izanagi/clipboard.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 1570,
+      "sha256": "48beeb68485c1566dc559f901da43d44c6ca6e05887f5b9728f771012f00a9ed",
+      "action": "added",
+      "previous_sha256": null
+    },
+    {
+      "path": "src/izanagi/config.toml",
+      "kind": "config",
+      "included": true,
+      "reason": "included by rule: *.toml",
+      "size_bytes": 1665,
+      "sha256": "0e1762be3a218b8e69bc89ed1a372415f0c025f014d939fe14264f467bf5d08d",
+      "action": "modified",
+      "previous_sha256": "2e2e07cbce122165ad6579c48c967a46356142ea2c3b1c34509b9eee45ac619c"
+    }
+  ]
+}

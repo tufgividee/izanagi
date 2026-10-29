@@ -1,0 +1,217 @@
+"""Izanagi: persistent snapshots for software engineering."""
+
+import argparse
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+from izanagi.base import build_snapshot, write_snapshot
+from izanagi.clipboard import copy_current
+from izanagi.config import initialize_project, load_project_config
+from izanagi.delta import build_delta, write_delta
+from izanagi.manifest import manifest_project
+
+
+def _update_current(source: Path, output_root: Path) -> Path:
+    """Atomically publish the latest successful Izanagi output as current.md."""
+    output_root.mkdir(parents=True, exist_ok=True)
+    current_path = output_root / "current.md"
+
+    file_descriptor, temporary_name = tempfile.mkstemp(
+        prefix=".current-",
+        suffix=".tmp",
+        dir=output_root,
+    )
+    temporary_path = Path(temporary_name)
+
+    try:
+        with os.fdopen(file_descriptor, "wb") as temporary_file:
+            temporary_file.write(source.read_bytes())
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+
+        os.replace(temporary_path, current_path)
+    except BaseException:
+        temporary_path.unlink(missing_ok=True)
+        raise
+
+    return current_path
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="izanagi",
+        description="Build reliable, local project context.",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    for command, help_text in (
+        ("init", "Initialize project-local Izanagi configuration."),
+        ("manifest", "Inspect project files and inclusion decisions."),
+        ("base", "Create a full baseline snapshot."),
+        ("delta", "Create an incremental update relative to a base."),
+        ("copy", "Copy the current context to the clipboard unchanged."),
+    ):
+        command_parser = subparsers.add_parser(command, help=help_text)
+        command_parser.add_argument(
+            "--project",
+            type=Path,
+            default=Path.cwd(),
+            help="Project directory (defaults to the current directory).",
+        )
+
+        if command in {"base", "delta"}:
+            command_parser.add_argument(
+                "--output",
+                type=Path,
+                help=(
+                    "Output directory. Defaults to the configured Izanagi "
+                    "output directory."
+                ),
+            )
+            command_parser.add_argument(
+                "--copy",
+                action="store_true",
+                help="Copy the generated context to the clipboard unchanged.",
+            )
+
+        if command == "delta":
+            command_parser.add_argument(
+                "--base",
+                help="Base snapshot ID (defaults to the latest saved base).",
+            )
+
+    args = parser.parse_args()
+
+    try:
+        if args.command == "init":
+            config_path = initialize_project(args.project)
+            print("Izanagi project initialized.")
+            print(f"Configuration: {config_path}")
+            return
+
+        project = args.project.expanduser().resolve()
+        if not project.is_dir():
+            raise ValueError(f"Project directory does not exist: {project}")
+
+        config = load_project_config(project)
+
+        configured_output = (
+            project / config["project"].get("output_dir", ".izanagi")
+        ).resolve()
+
+        if args.command == "copy":
+            current_path = copy_current(configured_output)
+            print(f"Copied: {current_path}")
+            return
+
+        if args.command == "manifest":
+            result = manifest_project(project, config=config)
+
+            print(f"Project root: {result['project_root']}")
+            print(f"Git root:     {result['git_root'] or '(not found)'}")
+            print()
+
+            for record in result["files"]:
+                marker = "IN " if record["included"] else "OUT"
+                size = record["size_bytes"]
+                size_text = (
+                    f"{size:>10,} B" if size is not None else "   unknown"
+                )
+                print(
+                    f"{marker:>3} {size_text}  "
+                    f"{record['path']} [{record['kind']}]"
+                )
+                if not record["included"]:
+                    print(f"    Reason: {record['reason']}")
+
+            summary = result["summary"]
+            print("\nSummary")
+            print(f"  Files:           {summary['file_count']}")
+            print(f"  Included:        {summary['included_count']}")
+            print(f"  Excluded:        {summary['excluded_count']}")
+            print(f"  Included size:   {summary['included_bytes']:,} bytes")
+            if "total_bytes" in summary:
+                print(f"  Known file size: {summary['total_bytes']:,} bytes")
+            return
+
+        output_root = (
+            args.output.expanduser().resolve()
+            if args.output
+            else configured_output
+        )
+
+        if args.command == "base":
+            snapshot = build_snapshot(project, config=config)
+
+            base_id = snapshot["manifest"]["snapshot_id"]
+            archive_dir = output_root / "bases" / base_id
+
+            archived_snapshot_path, _ = write_snapshot(snapshot, archive_dir)
+
+            manifest_path = output_root / "manifest.json"
+            manifest_path.write_text(
+                json.dumps(
+                    snapshot["manifest"],
+                    indent=2,
+                    ensure_ascii=False,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            current_path = _update_current(archived_snapshot_path, output_root)
+
+            print("Base snapshot created successfully.")
+            print(f"Current:  {current_path.resolve()}")
+            print(f"Manifest: {manifest_path.resolve()}")
+            print(f"Archive:  {archive_dir.resolve()}")
+            print(f"Base ID:  {base_id}")
+
+            if args.copy:
+                copy_current(output_root)
+            return
+
+        if args.command == "delta":
+            delta = build_delta(
+                project,
+                config=config,
+                output_root=configured_output,
+                base_id=args.base,
+            )
+
+            delta_output_root = (
+                output_root / "deltas"
+                if not args.output
+                else output_root
+            )
+            delta_path, manifest_path = write_delta(delta, delta_output_root)
+
+            current_path = _update_current(delta_path, configured_output)
+
+            summary = delta["manifest"]["summary"]
+            print("Delta created successfully.")
+            print(f"Current:  {current_path.resolve()}")
+            print(f"Delta:    {delta_path.resolve()}")
+            print(f"Manifest: {manifest_path.resolve()}")
+            print(f"Delta ID: {delta['manifest']['delta_id']}")
+            print(f"Base ID:  {delta['manifest']['base_snapshot_id']}")
+            print(
+                "Changes:  "
+                f"+{summary['added_count']} "
+                f"~{summary['modified_count']} "
+                f"-{summary['deleted_count']}"
+            )
+
+            if args.copy:
+                copy_current(configured_output)
+
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError) as error:
+        print(f"izanagi: error: {error}", file=sys.stderr)
+        raise SystemExit(2) from error
+
+
+if __name__ == "__main__":
+    main()

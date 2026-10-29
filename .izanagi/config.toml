@@ -1,0 +1,74 @@
+[project]
+name = ""
+root = "."
+output_dir = ".izanagi"
+
+[scan]
+include_hidden_files = true
+
+[scan.inclusions]
+rules = [
+    "experiments/",
+    "*.ipynb",
+    "/special_config.json",
+    "*.py",
+    "*.c",
+    "*.cpp",
+    "*.h",
+    "*.rs",
+    "*.sv",
+    "*.md",
+    "*.rst",
+    "*.txt",
+    "pyproject.toml",
+    "requirements.txt",
+    "uv.lock",
+    "Makefile",
+    "LICENSE",
+    "Dockerfile",
+    ".gitignore",
+    "*.toml",
+]
+
+[scan.exclusions]
+rules = [
+    ".git/",
+    ".venv/",
+    "__pycache__/",
+    "*.pyc",
+    "*.log",
+    ".DS_Store",
+    ".pytest_cache/",
+    ".ruff_cache/",
+    "uv.lock",
+    ".pytest_cache/",
+    ".ruff_cache",
+]
+
+[preamble]
+base_preamble = """
+# Izanagi Project Context — Base Snapshot
+
+This document is an Izanagi snapshot created to streamline project
+synchronization and communication with AI assistants.
+
+It captures the project's structure, relevant files, configuration,
+and recorded state at a specific point in time. It serves as the base
+context for ongoing discussion and future project work.
+
+The content below describes the project as captured, not necessarily
+its current state.
+"""
+
+incremental_preamble = """
+# Izanagi Project Context — Incremental Snapshot
+
+This is an Izanagi incremental snapshot created to streamline project
+synchronization and communication with AI assistants.
+
+Base snapshot ID: {base_snapshot_id}
+
+This document contains updates relative to the referenced base snapshot.
+Interpret it together with that base context.
+"""
+

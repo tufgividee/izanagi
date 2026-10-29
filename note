@@ -1,0 +1,95 @@
+One design principle I'd establish now: the filesystem is the source of truth; snapshots provide continuity; Git adds history.
+
+---
+
+Excellent. We have a clean starting point for Izanagi, and your note captures the central architectural principle:
+
+> The filesystem is the source of truth; snapshots provide continuity; Git adds history.
+
+A few observations from the scaffold:
+
+- Python 3.12+ and `uv` are already configured.
+- There are no runtime dependencies, which is ideal for a local-first tool.
+- The console entry point currently references `izanagi:main`, so we'll need to make sure that interface exists when we implement the CLI.
+- Git is initialized but has no commits yet. We can keep that history independent of the projects Izanagi analyzes.
+
+Before implementing modules, let's settle the output contract. I suggest each run creates two complementary artifacts: a machine-readable manifest for reliable change detection and a readable context package for the assistant.
+
+## 1. Proposed output contract
+
+For a target project such as nanoGPT:
+
+```
+<target-project>/
+└── ...                         # Original files remain untouched
+
+<output-directory>/
+├── manifest.json               # Machine-readable inventory and hashes
+├── context.md                  # Assistant-readable project snapshot
+├── handoff.md                  # Durable collaboration notes
+└── history/
+    └── <snapshot-id>.json      # Previous manifests for comparison
+```
+
+I recommend keeping the output directory configurable and outside the target repository by default. That avoids accidentally packing Izanagi's own output into the next snapshot.
+
+### `manifest.json`
+
+The manifest records each discovered file's relative path, size, content hash, classification, and inclusion decision. It also records the target root, snapshot format version, and applicable filtering configuration.
+
+This lets us distinguish three cases: a file changed, a file was added or removed, or a file stayed the same. It also makes exclusions auditable.
+
+### `context.md`
+
+This is the package intended for me to read. Its initial sections should be:
+
+1. Project identity and directory structure.
+2. Runtime, dependencies, and entry points.
+3. Relevant source files and their contents.
+4. Tests and configuration.
+5. Files excluded from content, with reasons.
+6. Git state, if available and requested.
+
+We should preserve source text faithfully, with explicit file boundaries and paths. No lossy compression or source rewriting in v0.1.
+
+### `handoff.md`
+
+This is the persistent collaboration record:
+
+- Current objective
+- Architecture and important decisions
+- Verified findings and supporting evidence
+- Hypotheses not yet tested
+- Known issues and constraints
+- Next concrete action
+
+Unlike the manifest, the handoff is intentionally editable and should not be regenerated from scratch on every run.
+
+## 2. First implementation scope
+
+I'd keep the initial milestone to three operations:
+
+| Operation           | Responsibility                            |
+| ------------------- | ----------------------------------------- |
+| `izanagi inventory` | Discover and classify files               |
+| `izanagi pack`      | Generate the manifest and context package |
+| `izanagi diff`      | Compare against a previous manifest       |
+
+The handoff can initially be a template created by `pack`, then maintained manually. We can add automated handoff updates later.
+
+One safety detail: the scanner should not follow symlinks by default, execute target code, or read the contents of excluded binary artifacts. It should also report unreadable files rather than silently ignoring them.
+
+## 3. The first acceptance test
+
+Using your upstream nanoGPT directory, we should verify that:
+
+- The expected source and configuration files appear in the package.
+- `.venv` and `input.txt` are excluded from source content by default.
+- The wider `xfmr` repository is identified without pulling sibling projects into the package.
+- Running `pack` twice without project changes yields identical manifest and context content, apart from any deliberately variable metadata.
+- Changing one source file is detected by `diff`.
+- The original project remains unmodified.
+
+We should also correct the CLI entry point in `pyproject.toml` when we implement the command interface, since the current configuration points to `izanagi:main` while the package is under `src/izanagi/`.
+
+My recommendation: implement the inventory and manifest first, test file selection against nanoGPT, then add context rendering. That gives us a verifiable foundation before we build the more sophisticated retrieval and persistence features.

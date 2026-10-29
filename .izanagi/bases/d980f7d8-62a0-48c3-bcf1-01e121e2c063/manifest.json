@@ -1,0 +1,240 @@
+{
+  "format_version": 1,
+  "izanagi_version": "0.1.0",
+  "snapshot_id": "d980f7d8-62a0-48c3-bcf1-01e121e2c063",
+  "created_at": "2026-10-28T17:20:38.231311+00:00",
+  "project_name": "izanagi",
+  "project_root": "/run/media/xiaonan/nn120gssd/career_build/ai/izanagi",
+  "git_root": "/run/media/xiaonan/nn120gssd/career_build/ai/izanagi",
+  "summary": {
+    "file_count": 20,
+    "included_count": 17,
+    "excluded_count": 3,
+    "included_bytes": 69679,
+    "known_file_bytes": 69679,
+    "categories": {
+      "other": 1,
+      "config": 3,
+      "documentation": 3,
+      "source": 10
+    }
+  },
+  "files": [
+    {
+      "path": ".git/",
+      "kind": "directory",
+      "included": false,
+      "reason": "excluded by rule: .git/",
+      "size_bytes": null
+    },
+    {
+      "path": ".gitignore",
+      "kind": "other",
+      "included": true,
+      "reason": "included by rule: .gitignore",
+      "size_bytes": 109,
+      "sha256": "ed7b84e816359d17276a801802de5c362c2c572ce3e50a8670c8362b08351380",
+      "encoding": "utf-8"
+    },
+    {
+      "path": ".izanagi/config.toml",
+      "kind": "config",
+      "included": true,
+      "reason": "included by rule: *.toml",
+      "size_bytes": 1608,
+      "sha256": "18246e0f39c6e9a65ba22b5698901d0cce77d032850ec4b4fde68c360962045c",
+      "encoding": "utf-8"
+    },
+    {
+      "path": ".pytest_cache/",
+      "kind": "directory",
+      "included": false,
+      "reason": "excluded by rule: .pytest_cache/",
+      "size_bytes": null
+    },
+    {
+      "path": ".python-version",
+      "kind": "other",
+      "included": false,
+      "reason": "no inclusion rule matched",
+      "size_bytes": null
+    },
+    {
+      "path": ".ruff_cache/",
+      "kind": "directory",
+      "included": false,
+      "reason": "excluded by rule: .ruff_cache/",
+      "size_bytes": null
+    },
+    {
+      "path": ".venv/",
+      "kind": "directory",
+      "included": false,
+      "reason": "excluded by rule: .venv/",
+      "size_bytes": null
+    },
+    {
+      "path": "README.md",
+      "kind": "documentation",
+      "included": true,
+      "reason": "included by rule: *.md",
+      "size_bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "note",
+      "kind": "other",
+      "included": false,
+      "reason": "no inclusion rule matched",
+      "size_bytes": null
+    },
+    {
+      "path": "pyproject.toml",
+      "kind": "config",
+      "included": true,
+      "reason": "included by rule: pyproject.toml",
+      "size_bytes": 426,
+      "sha256": "48b3d1a39ef2e512322fb75541458b9b4f19261260d5b8551cc1451df4996d21",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "sample_instructions.md",
+      "kind": "documentation",
+      "included": true,
+      "reason": "included by rule: *.md",
+      "size_bytes": 2139,
+      "sha256": "ce549c36794a00ac715419fc30de01a76fa6f53aa16edc3c530ecd4e8a5466e8",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "snapshot_structure.md",
+      "kind": "documentation",
+      "included": true,
+      "reason": "included by rule: *.md",
+      "size_bytes": 1662,
+      "sha256": "315cf26d3e9570ce1237c6e7a4071138321e8099d6989420812cf024ec4e3042",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "src/izanagi/__init__.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 7381,
+      "sha256": "19c7f8cb41aa6611624b2bde84826e9cb79209aa122dcf0d9ad5b53eb213e926",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "src/izanagi/__pycache__/",
+      "kind": "directory",
+      "included": false,
+      "reason": "excluded by rule: __pycache__/",
+      "size_bytes": null
+    },
+    {
+      "path": "src/izanagi/base.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 10923,
+      "sha256": "4c6dc6698820ffc24fc7c0ff532c912dc30b176668b8894c754ad7abf23aa3aa",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "src/izanagi/clipboard.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 1570,
+      "sha256": "48beeb68485c1566dc559f901da43d44c6ca6e05887f5b9728f771012f00a9ed",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "src/izanagi/config.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 3166,
+      "sha256": "fb1a04a857b783de9f45394a7222350c333013ecb42362e6667e32902c59002d",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "src/izanagi/config.toml",
+      "kind": "config",
+      "included": true,
+      "reason": "included by rule: *.toml",
+      "size_bytes": 1665,
+      "sha256": "0e1762be3a218b8e69bc89ed1a372415f0c025f014d939fe14264f467bf5d08d",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "src/izanagi/delta.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 8896,
+      "sha256": "906f38759522298e0450d8327b105923c2ebc0512e4b4c42845f5f07567fee2c",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "src/izanagi/manifest.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 13656,
+      "sha256": "0b8bb90bf2057d455e8bf9dd1368678bf7516503d958ce0de0948a3d09ddb80b",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "tests/__pycache__/",
+      "kind": "directory",
+      "included": false,
+      "reason": "excluded by rule: __pycache__/",
+      "size_bytes": null
+    },
+    {
+      "path": "tests/test_config.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 1598,
+      "sha256": "4a99eb9d2d84f9ca6d2dc13ba479ab1181aec9563b68c50cbe7d6ff2be56f883",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "tests/test_delta.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 4503,
+      "sha256": "bfb79104b882c84fdf9be67cb35808e261ea676273ab643e16e82d070a97bdb5",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "tests/test_manifest.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 7964,
+      "sha256": "de9b04408eb13002fcec87da3e6c324a382c6864796f1cf246295b73b3908122",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "tests/test_snapshot.py",
+      "kind": "source",
+      "included": true,
+      "reason": "included by rule: *.py",
+      "size_bytes": 2413,
+      "sha256": "c37bfc7e6f5c148bc87f87299a50983b92b8ef09702106dce906cffa74dab1fb",
+      "encoding": "utf-8"
+    },
+    {
+      "path": "uv.lock",
+      "kind": "config",
+      "included": false,
+      "reason": "excluded by rule: uv.lock",
+      "size_bytes": null
+    }
+  ]
+}
