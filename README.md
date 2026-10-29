@@ -2,7 +2,9 @@
 
 **Project context snapshots for AI-assisted software development.**
 
-Izanagi captures a software project's relevant files, directory structure, configuration, and recorded state in a portable Markdown document. The document can be shared with an AI assistant to establish project context without repeatedly explaining the codebase or manually selecting files.
+Izanagi performs one command captures of a software project's relevant files, directory structure, configuration, and recorded state in a portable Markdown document. The document can be shared with an AI assistant to establish project context without repeatedly explaining the codebase or manually selecting files.
+
+The snapshot can be directly copied into the clipboard, and then user can use segclip to split the content into a sequence of text segments for AI-assitance with specified text input length.
 
 The goal is to make AI-assisted development more continuous, reproducible, and efficient—even across separate conversations.
 
@@ -47,6 +49,14 @@ izanagi init --project /path/to/project
 izanagi manifest --project /path/to/project
 izanagi base --project /path/to/project
 izanagi copy --project /path/to/project
+```
+When working inside a project directory simply run
+
+```bash
+izanagi init
+izanagi base
+izanagi delta
+izanagi base --copy <- saves project snapshot directly to clipboard
 ```
 
 or also with uv
