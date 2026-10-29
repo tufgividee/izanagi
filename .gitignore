@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+.izanagi
+.ruff_cache
+.pytest_cache
